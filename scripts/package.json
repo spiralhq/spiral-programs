@@ -1,0 +1,17 @@
+{
+  "name": "@spiral-programs/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bootstrap-devnet": "node bootstrap-devnet.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/web3.js": "^1.98.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "^6.0.3"
+  }
+}

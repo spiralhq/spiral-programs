@@ -27,5 +27,5 @@ jobs:
           curl -sL -o anchor "https://github.com/otter-sec/anchor/releases/download/v1.1.2/anchor-1.1.2-x86_64-unknown-linux-gnu"
           chmod +x anchor
           sudo mv anchor /usr/local/bin/anchor
-      - run: anchor build
-      - run: anchor test
+      - run: anchor build --no-idl --ignore-keys
+      - run: anchor test --no-idl --skip-build

@@ -7,15 +7,26 @@ in [`spiralhq/spiral-backbone`](https://github.com/spiralhq/spiral-backbone).
 
 ## Programs
 
-- **`organization`** — will own organizations, members, and roles. Currently an
-  empty scaffold (`declare_id!` only, no accounts or instructions yet). Real
-  logic is future work, not yet started.
-- **`film`** — will own film/work registration. Also currently an empty
-  scaffold, for the same reason.
+Both programs are fully implemented: accounts, instructions, CPI-based
+authorization, events, and error codes. See `programs/organization/src/`
+and `programs/film/src/` for the source.
 
-Both programs are intentionally empty at this stage of the project — this
-repository currently only bootstraps the workspace, toolchain, and CI. Do
-not expect any account or instruction logic here yet.
+- **`organization`** — owns organizations, memberships, and role-based
+  access control. State: `Organization`, `Membership` (with `Role` —
+  Reader/Submitter/Admin — and `MembershipStatus` — Active/Revoked).
+  Instructions: `initialize_organization`, `grant_membership`,
+  `update_role`, `revoke_membership`, `transfer_authority`, and
+  `assert_can_submit` (the authorization check other programs CPI into).
+  Error codes `6000`-`6004`.
+- **`film`** — owns audiovisual-work registration. `register_film` CPIs
+  into `organization::assert_can_submit` to authorize the submitter before
+  creating the `Film` account. Also provides `declare_replica`,
+  `deactivate_replica`, and `update_access_policy`. Error codes
+  `6005`-`6008`.
+
+See [`docs/organization.md`](docs/organization.md) and
+[`docs/film.md`](docs/film.md) for the full structure of each program:
+every account, instruction, error code, and event.
 
 ## Build & test
 
@@ -34,13 +45,11 @@ local validator involved. Both programs' tests use
 [`litesvm`](https://github.com/LiteSVM/litesvm) for fast in-process program
 testing instead.
 
-### Gotcha: don't run bare `cargo test` before building
-
-Each program's smoke test (`programs/*/tests/smoke.rs`) uses `include_bytes!`
-to embed the compiled `.so` artifact from `target/deploy/`. That file only
-exists after a build, so running `cargo test` directly, without an `anchor
-build` first, fails to compile. Always use `anchor test` (which builds first),
-or run `anchor build` before a bare `cargo test`.
+The test suites live under each program's `tests/` directory:
+`organization_instructions.rs` and `event_completeness.rs` for
+`organization`; `register_film.rs`, `event_completeness.rs`, and
+`h3_scenarios.rs` (the H3 negative-scenario tests, with exact expected error
+codes) for `film`.
 
 ## Program keypairs
 
