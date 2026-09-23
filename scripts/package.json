@@ -4,14 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bootstrap-devnet": "node bootstrap-devnet.ts"
+    "bootstrap-devnet": "tsx bootstrap-devnet.ts",
+    "generate-clients": "node generate-clients.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.32.1",
-    "@solana/web3.js": "^1.98.4"
+    "@solana/kit": "^8.3.0",
+    "@solana/kit-plugin-rpc": "^0.19.0",
+    "@solana/kit-plugin-signer": "^0.19.0"
   },
   "devDependencies": {
+    "@codama/nodes-from-anchor": "^1.5.6",
+    "@codama/renderers-js": "^2.5.0",
     "@types/node": "^26.4.1",
+    "codama": "^1.11.0",
+    "tsx": "^4.20.0",
     "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

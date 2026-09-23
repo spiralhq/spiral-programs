@@ -1,125 +1,123 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
-import * as anchor from "@coral-xyz/anchor";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import {
+  createClient,
+  createKeyPairFromPrivateKeyBytes,
+  fetchEncodedAccount,
+  getAddressFromPublicKey,
+  getProgramDerivedAddress,
+  type Address,
+} from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { signerFromFile } from "@solana/kit-plugin-signer";
+import { fetchMaybeMembership } from "./generated/organization/accounts/membership.ts";
+import { getGrantMembershipInstructionAsync } from "./generated/organization/instructions/grantMembership.ts";
+import { getInitializeOrganizationInstructionAsync } from "./generated/organization/instructions/initializeOrganization.ts";
+import { getRevokeMembershipInstructionAsync } from "./generated/organization/instructions/revokeMembership.ts";
+import { findMembershipPda } from "./generated/organization/pdas/membership.ts";
+import { findOrganizationPda } from "./generated/organization/pdas/organization.ts";
+import { ORGANIZATION_PROGRAM_ADDRESS } from "./generated/organization/programs/organization.ts";
+import { MembershipStatus } from "./generated/organization/types/membershipStatus.ts";
+import { Role } from "./generated/organization/types/role.ts";
 
 const RPC_URL = process.env.SPIRAL_DEVNET_RPC ?? "https://api.devnet.solana.com";
+// See docs/bootstrap-script-notes.md#ws-url-override.
+const WS_URL = process.env.SPIRAL_DEVNET_WS;
 const KEYS_DIR = path.resolve(import.meta.dirname, "..", "keys");
-const IDL_DIR = path.resolve(import.meta.dirname, "..", "target", "idl");
-
-function loadKeypair(name: string): Keypair {
-  const raw = JSON.parse(fs.readFileSync(path.join(KEYS_DIR, `${name}-keypair.json`), "utf8"));
-  return Keypair.fromSecretKey(Uint8Array.from(raw));
-}
-
-function loadIdl(name: string): anchor.Idl {
-  return JSON.parse(fs.readFileSync(path.join(IDL_DIR, `${name}.json`), "utf8"));
-}
 
 /** Same seed always produces the same keypair, so re-running this script is idempotent. */
-function deterministicKeypair(seed: string): Keypair {
+function deterministicSeed(seed: string): Uint8Array {
   const hash = new Uint8Array(32);
   const bytes = Buffer.from(seed, "utf8");
-  for (let i = 0; i < 32; i++) hash[i] = bytes[i % bytes.length] ^ i;
-  return Keypair.fromSeed(hash);
+  for (let i = 0; i < 32; i++) hash[i] = bytes[i % bytes.length]! ^ i;
+  return hash;
 }
 
-/** Shared by the normal grant-then-revoke path and the repair path below, which
- * finishes a revoke left incomplete by a prior interrupted run. */
+/** See docs/bootstrap-script-notes.md#deterministic-h3-fixture-addresses. */
+async function deterministicAddress(seed: string): Promise<Address> {
+  const { publicKey } = await createKeyPairFromPrivateKeyBytes(deterministicSeed(seed));
+  return getAddressFromPublicKey(publicKey);
+}
+
 async function revokeH3Membership(
-  orgProgram: anchor.Program,
+  client: SpiralBootstrapClient,
   accounts: {
-    authority: PublicKey;
-    organization: PublicKey;
-    adminMembership: PublicKey;
-    member: PublicKey;
-    membership: PublicKey;
+    organization: Address;
+    member: Address;
+    membership: Address;
   },
 ): Promise<void> {
-  const [eventAuthority] = PublicKey.findProgramAddressSync(
-    [Buffer.from("__event_authority")],
-    orgProgram.programId,
-  );
-  await orgProgram.methods
-    .revokeMembership()
-    .accounts({ ...accounts, eventAuthority, program: orgProgram.programId })
-    .rpc();
+  const [eventAuthority] = await getProgramDerivedAddress({
+    programAddress: ORGANIZATION_PROGRAM_ADDRESS,
+    seeds: [new TextEncoder().encode("__event_authority")],
+  });
+  const instruction = await getRevokeMembershipInstructionAsync({
+    authority: client.payer,
+    organization: accounts.organization,
+    member: accounts.member,
+    membership: accounts.membership,
+    eventAuthority,
+    program: ORGANIZATION_PROGRAM_ADDRESS,
+  });
+  await client.sendTransaction([instruction]);
+}
+
+type SpiralBootstrapClient = Awaited<ReturnType<typeof createBootstrapClient>>;
+
+function createBootstrapClient(keypairPath: string) {
+  return createClient()
+    .use(signerFromFile(keypairPath))
+    .use(solanaRpc(WS_URL ? { rpcUrl: RPC_URL, rpcSubscriptionsUrl: WS_URL } : { rpcUrl: RPC_URL }));
 }
 
 async function main() {
-  const connection = new anchor.web3.Connection(RPC_URL, "confirmed");
-  const payer = loadKeypair("bootstrap-payer");
-  const wallet = new anchor.Wallet(payer);
-  const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
-  anchor.setProvider(provider);
-
-  const orgProgram = new anchor.Program(loadIdl("organization"), provider);
-  const filmProgram = new anchor.Program(loadIdl("film"), provider);
-  void filmProgram; // present for parity with future scripts that submit films here too
+  const client = await createBootstrapClient(path.join(KEYS_DIR, "bootstrap-payer-keypair.json"));
 
   const slug = "spiralhq-devnet";
-  const [orgPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("organization"), Buffer.from(slug)],
-    orgProgram.programId,
-  );
-  const [adminMembershipPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("membership"), orgPda.toBuffer(), payer.publicKey.toBuffer()],
-    orgProgram.programId,
-  );
+  const [orgPda] = await findOrganizationPda({ slug });
 
-  const existing = await connection.getAccountInfo(orgPda);
-  if (existing) {
-    console.log(`Organization "${slug}" already exists at ${orgPda.toBase58()} — skipping init.`);
+  const existing = await fetchEncodedAccount(client.rpc, orgPda);
+  if (existing.exists) {
+    console.log(`Organization "${slug}" already exists at ${orgPda} — skipping init.`);
   } else {
-    await orgProgram.methods
-      .initializeOrganization(slug, "Spiral HQ (Devnet)")
-      .accounts({
-        authority: payer.publicKey,
-        organization: orgPda,
-        membership: adminMembershipPda,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
-    console.log(`Created organization "${slug}" at ${orgPda.toBase58()}.`);
+    const instruction = await getInitializeOrganizationInstructionAsync({
+      authority: client.payer,
+      slug,
+      name: "Spiral HQ (Devnet)",
+    });
+    await client.sendTransaction([instruction]);
+    console.log(`Created organization "${slug}" at ${orgPda}.`);
   }
 
-  // H3 negative-scenario fixtures: deterministic keypairs, granted (or deliberately
-  // NOT granted) membership so an evaluation harness always finds the same accounts
-  // in the same state without depending on manually-accumulated history.
-  const scenarios: Array<{ name: string; role: "Reader" | "Submitter" | "Admin" | null }> = [
+  // H3 negative-scenario fixtures for the evaluation harness.
+  const scenarios: Array<{ name: string; role: Role | null }> = [
     { name: "h3-no-membership", role: null },
-    { name: "h3-revoked", role: "Submitter" },
-    { name: "h3-reader-role", role: "Reader" },
+    { name: "h3-revoked", role: Role.Submitter },
+    { name: "h3-reader-role", role: Role.Reader },
   ];
 
   for (const scenario of scenarios) {
-    const kp = deterministicKeypair(scenario.name);
+    const memberAddress = await deterministicAddress(scenario.name);
     if (scenario.role === null) continue; // intentionally never granted
 
-    const [membershipPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("membership"), orgPda.toBuffer(), kp.publicKey.toBuffer()],
-      orgProgram.programId,
-    );
-    const already = await connection.getAccountInfo(membershipPda);
-    if (already) {
-      // Existence alone doesn't mean h3-revoked is fully provisioned: a prior run
-      // may have granted membership and died before the revoke landed. Decode the
-      // actual status and finish the revoke if needed.
+    const [membershipPda] = await findMembershipPda({
+      organization: orgPda,
+      member: memberAddress,
+    });
+    const already = await fetchEncodedAccount(client.rpc, membershipPda);
+    if (already.exists) {
+      // See docs/bootstrap-script-notes.md#the-h3-revoked-repair-path.
       if (scenario.name === "h3-revoked") {
-        // `anchor.Idl`'s `accounts` field is optional, so TS can't infer account
-        // names here; the cast just satisfies the type checker.
-        const membershipAccount = orgProgram.account as unknown as {
-          membership: { fetch(address: PublicKey): Promise<{ status: Record<string, unknown> }> };
-        };
-        const membership = await membershipAccount.membership.fetch(membershipPda);
-        const status = membership.status;
-        if ("active" in status) {
-          console.log(`Membership for ${scenario.name} exists but is still Active — finishing revoke.`);
-          await revokeH3Membership(orgProgram, {
-            authority: payer.publicKey,
+        const membership = await fetchMaybeMembership(client.rpc, membershipPda);
+        if (!membership.exists) {
+          throw new Error(`Membership account ${membershipPda} exists on-chain but failed to decode.`);
+        }
+        if (membership.data.status === MembershipStatus.Active) {
+          console.log(
+            `Membership for ${scenario.name} exists but is still Active — finishing revoke.`,
+          );
+          await revokeH3Membership(client, {
             organization: orgPda,
-            adminMembership: adminMembershipPda,
-            member: kp.publicKey,
+            member: memberAddress,
             membership: membershipPda,
           });
           console.log(`Revoked membership for ${scenario.name}.`);
@@ -131,25 +129,20 @@ async function main() {
       }
       continue;
     }
-    await orgProgram.methods
-      .grantMembership({ [scenario.role.toLowerCase()]: {} })
-      .accounts({
-        authority: payer.publicKey,
-        organization: orgPda,
-        adminMembership: adminMembershipPda,
-        member: kp.publicKey,
-        membership: membershipPda,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
-    console.log(`Granted ${scenario.role} to ${scenario.name} (${kp.publicKey.toBase58()}).`);
+
+    const grantInstruction = await getGrantMembershipInstructionAsync({
+      authority: client.payer,
+      organization: orgPda,
+      member: memberAddress,
+      role: scenario.role,
+    });
+    await client.sendTransaction([grantInstruction]);
+    console.log(`Granted ${Role[scenario.role]} to ${scenario.name} (${memberAddress}).`);
 
     if (scenario.name === "h3-revoked") {
-      await revokeH3Membership(orgProgram, {
-        authority: payer.publicKey,
+      await revokeH3Membership(client, {
         organization: orgPda,
-        adminMembership: adminMembershipPda,
-        member: kp.publicKey,
+        member: memberAddress,
         membership: membershipPda,
       });
       console.log(`Revoked membership for ${scenario.name}.`);

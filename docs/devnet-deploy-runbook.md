@@ -29,11 +29,16 @@ Manual steps — not run by any automated task. Requires a funded Devnet wallet.
    by the BPF upgradeable loader and cannot sign as a transaction fee payer at
    all; before deploy it's just an unfunded system account. Either way it
    cannot do this job — generate a separate keypair as above.
-6. Run the bootstrap script: `cd scripts && node bootstrap-devnet.ts`, since
-   Node's native TypeScript support handles this file without a separate
-   transpile step. This requires Node 23.6+ (type stripping for `.ts` files
-   is enabled by default from that version on; earlier Node 22.x versions can
-   do it only behind `--experimental-strip-types`). Check with `node --version`
-   first if you're not sure what's installed.
+6. Run the bootstrap script: `cd scripts && npm run bootstrap-devnet` (runs
+   `tsx bootstrap-devnet.ts`). This script imports its `@solana/kit` client
+   from `scripts/generated/organization/` — Codama-generated and committed,
+   like `idl/`. If `idl/organization.json` or `idl/film.json` changed since
+   the last commit to `scripts/generated/`, re-run `npm run generate-clients`
+   and commit the result before running the bootstrap script, or it'll be
+   operating against a stale client. The generated client's own files use
+   directory-style relative imports Node's native ESM loader doesn't resolve
+   (`ERR_UNSUPPORTED_DIR_IMPORT`) — `tsx` (bundler-style resolution, same as
+   this project's other Kit-based tooling) is required here; plain `node
+   bootstrap-devnet.ts` will not work.
 7. Record the deployed Program IDs and the IDL transaction signatures somewhere
    durable, so a future IDL-sync tool knows which build produced the IDL it copies.
