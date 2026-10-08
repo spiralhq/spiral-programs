@@ -3,7 +3,7 @@ use solana_sha256_hasher::hash;
 
 use crate::error::FilmError;
 use crate::events::FilmRegistered;
-use crate::state::{AccessPolicy, Film, ReplicaDeclaration, MAX_REPLICAS};
+use crate::state::{AccessPolicy, Film, ReplicaDeclaration, MAX_REPLICAS, MAX_TITLE_LEN};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -11,7 +11,6 @@ use crate::state::{AccessPolicy, Film, ReplicaDeclaration, MAX_REPLICAS};
 pub struct RegisterFilm<'info> {
     #[account(mut)]
     pub submitter: Signer<'info>,
-    #[account(mut)]
     pub organization: Account<'info, organization::Organization>,
     pub membership: Account<'info, organization::Membership>,
     #[account(
@@ -46,6 +45,11 @@ pub fn handle_register_film(
     );
     require!(cid[2] == 0x12, FilmError::InvalidCidPrefix);
     require!(cid[3] == 0x20, FilmError::InvalidCidPrefix);
+    require!(
+        cid[cid_len as usize..].iter().all(|&b| b == 0),
+        FilmError::CidPaddingNotZero
+    );
+    require!(title.len() <= MAX_TITLE_LEN, FilmError::TitleTooLong);
 
     let cpi_program_id = ctx.accounts.organization_program.key();
     let cpi_accounts = organization::cpi::accounts::AssertCanSubmit {

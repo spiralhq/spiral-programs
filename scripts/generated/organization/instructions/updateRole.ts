@@ -64,6 +64,8 @@ export type UpdateRoleInstruction<
   TAccountAdminMembership extends string | AccountMeta<string> = string,
   TAccountMember extends string | AccountMeta<string> = string,
   TAccountMembership extends string | AccountMeta<string> = string,
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -85,6 +87,12 @@ export type UpdateRoleInstruction<
       TAccountMembership extends string
         ? WritableAccount<TAccountMembership>
         : TAccountMembership,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -131,12 +139,17 @@ export type UpdateRoleAsyncInput<
     InstructionAccountInput,
   TAccountMember extends InstructionAccountInput = InstructionAccountInput,
   TAccountMembership extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   authority: TAccountAuthority;
   organization: TAccountOrganization;
   adminMembership?: TAccountAdminMembership;
   member: TAccountMember;
   membership?: TAccountMembership;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   newRole: UpdateRoleInstructionDataArgs["newRole"];
 };
 
@@ -146,6 +159,8 @@ export async function getUpdateRoleInstructionAsync<
   TAccountAdminMembership extends InstructionAccountInput,
   TAccountMember extends InstructionAccountInput,
   TAccountMembership extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof ORGANIZATION_PROGRAM_ADDRESS,
 >(
   input: UpdateRoleAsyncInput<
@@ -153,7 +168,9 @@ export async function getUpdateRoleInstructionAsync<
     TAccountOrganization,
     TAccountAdminMembership,
     TAccountMember,
-    TAccountMembership
+    TAccountMembership,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -178,6 +195,14 @@ export async function getUpdateRoleInstructionAsync<
     ResolvedInstructionAccountMeta<
       TAccountMembership,
       InstructionAccountInputAddress<TAccountMembership>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
     >
   >
 > {
@@ -209,6 +234,16 @@ export async function getUpdateRoleInstructionAsync<
       value: input.membership ?? null,
       isSigner: false,
       isWritable: true,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
     },
   };
   const accounts = originalAccounts as Record<
@@ -258,6 +293,8 @@ export async function getUpdateRoleInstructionAsync<
       getAccountMeta("adminMembership", accounts.adminMembership),
       getAccountMeta("member", accounts.member),
       getAccountMeta("membership", accounts.membership),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getUpdateRoleInstructionDataEncoder().encode(
       args as UpdateRoleInstructionDataArgs,
@@ -284,6 +321,14 @@ export async function getUpdateRoleInstructionAsync<
     ResolvedInstructionAccountMeta<
       TAccountMembership,
       InstructionAccountInputAddress<TAccountMembership>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
     >
   >);
 }
@@ -296,12 +341,17 @@ export type UpdateRoleInput<
     InstructionAccountInput,
   TAccountMember extends InstructionAccountInput = InstructionAccountInput,
   TAccountMembership extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   authority: TAccountAuthority;
   organization: TAccountOrganization;
   adminMembership: TAccountAdminMembership;
   member: TAccountMember;
   membership: TAccountMembership;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   newRole: UpdateRoleInstructionDataArgs["newRole"];
 };
 
@@ -311,6 +361,8 @@ export function getUpdateRoleInstruction<
   TAccountAdminMembership extends InstructionAccountInput,
   TAccountMember extends InstructionAccountInput,
   TAccountMembership extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof ORGANIZATION_PROGRAM_ADDRESS,
 >(
   input: UpdateRoleInput<
@@ -318,7 +370,9 @@ export function getUpdateRoleInstruction<
     TAccountOrganization,
     TAccountAdminMembership,
     TAccountMember,
-    TAccountMembership
+    TAccountMembership,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): UpdateRoleInstruction<
@@ -342,6 +396,14 @@ export function getUpdateRoleInstruction<
   ResolvedInstructionAccountMeta<
     TAccountMembership,
     InstructionAccountInputAddress<TAccountMembership>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
   >
 > {
   // Program address.
@@ -373,6 +435,16 @@ export function getUpdateRoleInstruction<
       isSigner: false,
       isWritable: true,
     },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -389,6 +461,8 @@ export function getUpdateRoleInstruction<
       getAccountMeta("adminMembership", accounts.adminMembership),
       getAccountMeta("member", accounts.member),
       getAccountMeta("membership", accounts.membership),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getUpdateRoleInstructionDataEncoder().encode(
       args as UpdateRoleInstructionDataArgs,
@@ -415,6 +489,14 @@ export function getUpdateRoleInstruction<
     ResolvedInstructionAccountMeta<
       TAccountMembership,
       InstructionAccountInputAddress<TAccountMembership>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
     >
   >);
 }
@@ -430,6 +512,8 @@ export type ParsedUpdateRoleInstruction<
     adminMembership: TAccountMetas[2];
     member: TAccountMetas[3];
     membership: TAccountMetas[4];
+    eventAuthority: TAccountMetas[5];
+    program: TAccountMetas[6];
   };
   data: UpdateRoleInstructionData;
 };
@@ -442,12 +526,12 @@ export function parseUpdateRoleInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedUpdateRoleInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 7) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 5,
+        expectedAccountMetas: 7,
       },
     );
   }
@@ -465,6 +549,8 @@ export function parseUpdateRoleInstruction<
       adminMembership: getNextAccount(),
       member: getNextAccount(),
       membership: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getUpdateRoleInstructionDataDecoder().decode(instruction.data),
   };

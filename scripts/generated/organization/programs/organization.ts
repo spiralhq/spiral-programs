@@ -46,7 +46,7 @@ import {
   getGrantMembershipInstructionAsync,
   getInitializeOrganizationInstructionAsync,
   getRevokeMembershipInstructionAsync,
-  getTransferAuthorityInstruction,
+  getTransferAuthorityInstructionAsync,
   getUpdateRoleInstructionAsync,
   parseAssertCanSubmitInstruction,
   parseGrantMembershipInstruction,
@@ -64,12 +64,13 @@ import {
   type ParsedTransferAuthorityInstruction,
   type ParsedUpdateRoleInstruction,
   type RevokeMembershipAsyncInput,
-  type TransferAuthorityInput,
+  type TransferAuthorityAsyncInput,
   type UpdateRoleAsyncInput,
 } from "../instructions";
 import {
   findAdminMembershipPda,
   findMembershipPda,
+  findNewAuthorityMembershipPda,
   findOrganizationPda,
 } from "../pdas";
 
@@ -114,7 +115,10 @@ export function identifyOrganizationAccount(
 }
 
 export enum OrganizationEvent {
+  AuthorityTransferred,
+  MembershipGranted,
   MembershipRevoked,
+  MembershipRoleUpdated,
 }
 
 export function identifyOrganizationEvent(
@@ -125,12 +129,45 @@ export function identifyOrganizationEvent(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([245, 109, 179, 54, 135, 92, 22, 64]),
+      ),
+      0,
+    )
+  ) {
+    return OrganizationEvent.AuthorityTransferred;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([161, 171, 234, 116, 7, 70, 134, 251]),
+      ),
+      0,
+    )
+  ) {
+    return OrganizationEvent.MembershipGranted;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([191, 117, 121, 162, 171, 173, 117, 75]),
       ),
       0,
     )
   ) {
     return OrganizationEvent.MembershipRevoked;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([194, 101, 249, 97, 41, 29, 202, 81]),
+      ),
+      0,
+    )
+  ) {
+    return OrganizationEvent.MembershipRoleUpdated;
   }
   throw new Error(
     "The provided event could not be identified as a organization event.",
@@ -336,8 +373,8 @@ export type OrganizationPluginInstructions = {
   ) => ReturnType<typeof getRevokeMembershipInstructionAsync> &
     SelfPlanAndSendFunctions;
   transferAuthority: (
-    input: TransferAuthorityInput,
-  ) => ReturnType<typeof getTransferAuthorityInstruction> &
+    input: TransferAuthorityAsyncInput,
+  ) => ReturnType<typeof getTransferAuthorityInstructionAsync> &
     SelfPlanAndSendFunctions;
   updateRole: (
     input: UpdateRoleAsyncInput,
@@ -349,6 +386,7 @@ export type OrganizationPluginPdas = {
   adminMembership: typeof findAdminMembershipPda;
   membership: typeof findMembershipPda;
   organization: typeof findOrganizationPda;
+  newAuthorityMembership: typeof findNewAuthorityMembershipPda;
 };
 
 export type OrganizationPluginRequirements = ClientWithRpc<
@@ -391,7 +429,7 @@ export function organizationProgram() {
           transferAuthority: (input) =>
             addSelfPlanAndSendFunctions(
               client,
-              getTransferAuthorityInstruction(input),
+              getTransferAuthorityInstructionAsync(input),
             ),
           updateRole: (input) =>
             addSelfPlanAndSendFunctions(
@@ -403,6 +441,7 @@ export function organizationProgram() {
           adminMembership: findAdminMembershipPda,
           membership: findMembershipPda,
           organization: findOrganizationPda,
+          newAuthorityMembership: findNewAuthorityMembershipPda,
         },
         identifyAccount: identifyOrganizationAccount,
         identifyInstruction: identifyOrganizationInstruction,

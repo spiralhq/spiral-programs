@@ -83,7 +83,7 @@ export type RegisterFilmInstruction<
             AccountSignerMeta<TAccountSubmitter>
         : TAccountSubmitter,
       TAccountOrganization extends string
-        ? WritableAccount<TAccountOrganization>
+        ? ReadonlyAccount<TAccountOrganization>
         : TAccountOrganization,
       TAccountMembership extends string
         ? ReadonlyAccount<TAccountMembership>
@@ -261,7 +261,7 @@ export function getRegisterFilmInstruction<
     organization: {
       value: input.organization ?? null,
       isSigner: false,
-      isWritable: true,
+      isWritable: false,
     },
     membership: {
       value: input.membership ?? null,

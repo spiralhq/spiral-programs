@@ -9,10 +9,10 @@ pub fn require_role(
     signer: &Pubkey,
     allowed: &[Role],
 ) -> Result<()> {
-    require!(
-        membership.status == MembershipStatus::Active,
-        OrgError::MembershipRevoked
-    );
+    match membership.status {
+        MembershipStatus::Active => {}
+        MembershipStatus::Revoked => return err!(OrgError::MembershipRevoked),
+    }
     require!(
         allowed.contains(&membership.role),
         OrgError::InsufficientRole

@@ -1,6 +1,27 @@
 use anchor_lang::prelude::*;
 
+use crate::error::OrgError;
 use crate::state::{Membership, MembershipStatus, Organization, Role};
+
+pub const MAX_SLUG_LEN: usize = 32;
+pub const MAX_NAME_LEN: usize = 96;
+
+trait CheckedSlug {
+    fn checked_slug(&self) -> Result<&str>;
+}
+
+impl CheckedSlug for String {
+    fn checked_slug(&self) -> Result<&str> {
+        require!(
+            (1..=MAX_SLUG_LEN).contains(&self.len())
+                && self
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'),
+            OrgError::SlugInvalid
+        );
+        Ok(self)
+    }
+}
 
 #[derive(Accounts)]
 #[instruction(slug: String)]
@@ -11,7 +32,9 @@ pub struct InitializeOrganization<'info> {
         init,
         payer = authority,
         space = 8 + Organization::INIT_SPACE,
-        seeds = [b"organization", slug.as_bytes()],
+        // Validated inside the seed: PDA derivation runs before the handler and panics on >32 bytes.
+        // Method-call form keeps the IDL seed as the `slug` arg.
+        seeds = [b"organization", slug.checked_slug()?.as_bytes()],
         bump,
     )]
     pub organization: Account<'info, Organization>,
@@ -31,6 +54,8 @@ pub fn handle_initialize_organization(
     slug: String,
     name: String,
 ) -> Result<()> {
+    require!(!name.is_empty(), OrgError::NameEmpty);
+    require!(name.len() <= MAX_NAME_LEN, OrgError::NameTooLong);
     let now = Clock::get()?.unix_timestamp;
 
     let organization = &mut ctx.accounts.organization;

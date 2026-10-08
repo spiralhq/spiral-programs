@@ -1,3 +1,8 @@
+#[path = "../../../test-support/program_bytes.rs"]
+mod program_bytes;
+
+use program_bytes::program_bytes;
+
 use {
     anchor_lang::{
         prelude::Pubkey,
@@ -16,22 +21,13 @@ use {
 
 fn load_svm() -> LiteSVM {
     let mut svm = LiteSVM::new();
-    svm.add_program(
-        organization::id(),
-        include_bytes!(concat!(
-            env!("CARGO_TARGET_TMPDIR"),
-            "/../deploy/organization.so"
-        )),
-    )
-    .unwrap();
-    svm.add_program(
-        film::id(),
-        include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/film.so")),
-    )
-    .unwrap();
+    svm.add_program(organization::id(), &program_bytes("organization"))
+        .unwrap();
+    svm.add_program(film::id(), &program_bytes("film")).unwrap();
     svm
 }
 
+#[allow(clippy::result_large_err)]
 fn send(
     svm: &mut LiteSVM,
     payer: &Keypair,
@@ -119,6 +115,12 @@ fn grant(
             member,
             membership,
             system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
+            program: organization::id(),
         }
         .to_account_metas(None),
     );
@@ -315,6 +317,20 @@ fn scenario_6_duplicate_cid() {
     let (ix2, _) = register_ix(org, authority.pubkey(), admin_membership, 6);
     let res = send(&mut svm, &authority, &[ix2], &[]);
     assert_error_code(&res, 0);
+    let failed: Vec<&String> = res
+        .as_ref()
+        .unwrap_err()
+        .meta
+        .logs
+        .iter()
+        .filter(|line| line.contains(" failed: "))
+        .collect();
+    assert!(
+        failed
+            .first()
+            .is_some_and(|line| line.starts_with(&format!("Program {} failed", system_program::ID))),
+        "expected the system program to refuse first, got {failed:?}"
+    );
 }
 
 #[test]
@@ -342,6 +358,23 @@ fn scenario_7_forged_membership_owner() {
     .unwrap();
 
     let (ix, _) = register_ix(org, authority.pubkey(), forged_membership, 7);
+    let res = send(&mut svm, &authority, &[ix], &[]);
+    assert_error_code(&res, 3007);
+}
+
+#[test]
+fn scenario_7_film_account_as_membership() {
+    let mut svm = load_svm();
+    let authority = Keypair::new();
+    let org = init_org(&mut svm, &authority, "h3-7f");
+    let (real_membership, _) = Pubkey::find_program_address(
+        &[b"membership", org.as_ref(), authority.pubkey().as_ref()],
+        &organization::id(),
+    );
+    let (ix, film_account) = register_ix(org, authority.pubkey(), real_membership, 70);
+    assert_ok(&send(&mut svm, &authority, &[ix], &[]));
+
+    let (ix, _) = register_ix(org, authority.pubkey(), film_account, 71);
     let res = send(&mut svm, &authority, &[ix], &[]);
     assert_error_code(&res, 3007);
 }

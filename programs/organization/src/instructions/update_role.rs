@@ -1,8 +1,11 @@
 use anchor_lang::prelude::*;
 
 use crate::authz::require_role;
+use crate::error::OrgError;
+use crate::events::MembershipRoleUpdated;
 use crate::state::{Membership, Organization, Role};
 
+#[event_cpi]
 #[derive(Accounts)]
 pub struct UpdateRole<'info> {
     pub authority: Signer<'info>,
@@ -30,7 +33,21 @@ pub fn handle_update_role(ctx: Context<UpdateRole>, new_role: Role) -> Result<()
         &[Role::Admin],
     )?;
 
+    require_keys_neq!(
+        ctx.accounts.membership.member,
+        ctx.accounts.organization.authority,
+        OrgError::AuthorityProtected
+    );
+    let old_role = ctx.accounts.membership.role;
     ctx.accounts.membership.role = new_role;
+
+    emit_cpi!(MembershipRoleUpdated {
+        organization: ctx.accounts.organization.key(),
+        member: ctx.accounts.membership.member,
+        authority: ctx.accounts.authority.key(),
+        old_role,
+        new_role,
+    });
 
     Ok(())
 }

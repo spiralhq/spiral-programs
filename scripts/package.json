@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "bootstrap-devnet": "tsx bootstrap-devnet.ts",
-    "generate-clients": "node generate-clients.ts"
+    "generate-clients": "node generate-clients.ts",
+    "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@solana/kit": "^8.3.0",

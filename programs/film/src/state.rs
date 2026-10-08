@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
 pub const MAX_REPLICAS: usize = 8;
+pub const MAX_TITLE_LEN: usize = 160;
+pub const PEER_ID_LEN: u8 = 38;
+pub const ED25519_PEER_ID_PREFIX: [u8; 6] = [0x00, 0x24, 0x08, 0x01, 0x12, 0x20];
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
 pub struct ReplicaDeclaration {

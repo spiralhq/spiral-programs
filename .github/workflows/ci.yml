@@ -4,29 +4,53 @@ on:
   push:
   pull_request:
 
+env:
+  RUST_TOOLCHAIN: 1.89.0
+  SOLANA_VERSION: v3.1.10
+  ANCHOR_VERSION: 1.1.2
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: rustup component add rustfmt clippy
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+      - name: Doc hygiene
+        run: |
+          out=$(git grep -n -i -E "superpowers|pre-project|pré-projeto|initial-design|\bPhase [0-9]" -- . ':!.github/workflows/ci.yml' || true)
+          if [ -n "$out" ]; then echo "$out"; exit 1; fi
       - run: cargo fmt --all -- --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci --prefix scripts
+      - run: npm run --prefix scripts check
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            ~/.cache/solana
+          key: ${{ runner.os }}-rust${{ env.RUST_TOOLCHAIN }}-solana${{ env.SOLANA_VERSION }}-anchor${{ env.ANCHOR_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-rust${{ env.RUST_TOOLCHAIN }}-solana${{ env.SOLANA_VERSION }}-anchor${{ env.ANCHOR_VERSION }}-
       - name: Install Solana CLI
         run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_VERSION}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       - name: Install Anchor CLI
         run: |
-          curl -sL -o anchor "https://github.com/otter-sec/anchor/releases/download/v1.1.2/anchor-1.1.2-x86_64-unknown-linux-gnu"
+          curl -sL -o anchor "https://github.com/otter-sec/anchor/releases/download/v${ANCHOR_VERSION}/anchor-${ANCHOR_VERSION}-x86_64-unknown-linux-gnu"
           chmod +x anchor
           sudo mv anchor /usr/local/bin/anchor
-      - run: anchor build --no-idl --ignore-keys
-      - run: anchor test --no-idl --skip-build
+      - run: cargo clippy --all-targets -- -D warnings
+      # keys/*.json are gitignored, so the declared IDs cannot be checked against keypairs in CI
+      - run: anchor build --ignore-keys
+      - run: scripts/check-idl.sh
+      - run: anchor test --skip-build

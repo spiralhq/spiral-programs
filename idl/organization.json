@@ -122,6 +122,12 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
         }
       ],
       "args": [
@@ -348,6 +354,42 @@
         },
         {
           "name": "new_authority"
+        },
+        {
+          "name": "new_authority_membership",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114,
+                  115,
+                  104,
+                  105,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "organization"
+              },
+              {
+                "kind": "account",
+                "path": "new_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
         }
       ],
       "args": []
@@ -435,6 +477,12 @@
               }
             ]
           }
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
         }
       ],
       "args": [
@@ -479,6 +527,32 @@
   ],
   "events": [
     {
+      "name": "AuthorityTransferred",
+      "discriminator": [
+        245,
+        109,
+        179,
+        54,
+        135,
+        92,
+        22,
+        64
+      ]
+    },
+    {
+      "name": "MembershipGranted",
+      "discriminator": [
+        161,
+        171,
+        234,
+        116,
+        7,
+        70,
+        134,
+        251
+      ]
+    },
+    {
       "name": "MembershipRevoked",
       "discriminator": [
         191,
@@ -490,18 +564,31 @@
         117,
         75
       ]
+    },
+    {
+      "name": "MembershipRoleUpdated",
+      "discriminator": [
+        194,
+        101,
+        249,
+        97,
+        41,
+        29,
+        202,
+        81
+      ]
     }
   ],
   "errors": [
     {
       "code": 6000,
       "name": "MembershipNotFound",
-      "msg": "Signer has no active membership in this organization"
+      "msg": "No membership account exists for the signer (reserved; Anchor reports AccountNotInitialized)"
     },
     {
       "code": 6001,
       "name": "MembershipRevoked",
-      "msg": "Membership has been revoked"
+      "msg": "Signer's membership has been revoked"
     },
     {
       "code": 6002,
@@ -517,9 +604,59 @@
       "code": 6004,
       "name": "MemberMismatch",
       "msg": "Signer does not match membership.member"
+    },
+    {
+      "code": 6005,
+      "name": "SlugInvalid",
+      "msg": "Slug must be 1-32 bytes of [a-z0-9-]"
+    },
+    {
+      "code": 6006,
+      "name": "NameTooLong",
+      "msg": "Name exceeds 96 bytes"
+    },
+    {
+      "code": 6007,
+      "name": "MembershipNotActive",
+      "msg": "Target membership is not active"
+    },
+    {
+      "code": 6008,
+      "name": "AuthorityProtected",
+      "msg": "The organization authority's membership cannot be revoked or changed"
+    },
+    {
+      "code": 6009,
+      "name": "MemberCountOverflow",
+      "msg": "Organization member count overflowed"
+    },
+    {
+      "code": 6010,
+      "name": "NameEmpty",
+      "msg": "Name must not be empty"
     }
   ],
   "types": [
+    {
+      "name": "AuthorityTransferred",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "organization",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
     {
       "name": "Membership",
       "type": {
@@ -569,6 +706,38 @@
       }
     },
     {
+      "name": "MembershipGranted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "organization",
+            "type": "pubkey"
+          },
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "role",
+            "type": {
+              "defined": {
+                "name": "Role"
+              }
+            }
+          },
+          {
+            "name": "granted_by",
+            "type": "pubkey"
+          },
+          {
+            "name": "granted_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "MembershipRevoked",
       "type": {
         "kind": "struct",
@@ -584,6 +753,42 @@
           {
             "name": "revoked_at",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MembershipRoleUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "organization",
+            "type": "pubkey"
+          },
+          {
+            "name": "member",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_role",
+            "type": {
+              "defined": {
+                "name": "Role"
+              }
+            }
+          },
+          {
+            "name": "new_role",
+            "type": {
+              "defined": {
+                "name": "Role"
+              }
+            }
           }
         ]
       }

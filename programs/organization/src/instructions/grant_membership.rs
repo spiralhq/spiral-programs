@@ -1,8 +1,11 @@
 use anchor_lang::prelude::*;
 
 use crate::authz::require_role;
+use crate::error::OrgError;
+use crate::events::MembershipGranted;
 use crate::state::{Membership, MembershipStatus, Organization, Role};
 
+#[event_cpi]
 #[derive(Accounts)]
 pub struct GrantMembership<'info> {
     #[account(mut)]
@@ -51,7 +54,15 @@ pub fn handle_grant_membership(ctx: Context<GrantMembership>, role: Role) -> Res
         .organization
         .member_count
         .checked_add(1)
-        .unwrap();
+        .ok_or(OrgError::MemberCountOverflow)?;
+
+    emit_cpi!(MembershipGranted {
+        organization: ctx.accounts.organization.key(),
+        member: ctx.accounts.member.key(),
+        role,
+        granted_by: ctx.accounts.authority.key(),
+        granted_at: now,
+    });
 
     Ok(())
 }

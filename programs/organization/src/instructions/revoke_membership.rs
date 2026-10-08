@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::authz::require_role;
+use crate::error::OrgError;
 use crate::events::MembershipRevoked;
 use crate::state::{Membership, MembershipStatus, Organization, Role};
 
@@ -32,8 +33,18 @@ pub fn handle_revoke_membership(ctx: Context<RevokeMembership>) -> Result<()> {
         &[Role::Admin],
     )?;
 
-    let now = Clock::get()?.unix_timestamp;
     let membership = &mut ctx.accounts.membership;
+    require!(
+        membership.status == MembershipStatus::Active,
+        OrgError::MembershipNotActive
+    );
+    require_keys_neq!(
+        membership.member,
+        ctx.accounts.organization.authority,
+        OrgError::AuthorityProtected
+    );
+
+    let now = Clock::get()?.unix_timestamp;
     membership.status = MembershipStatus::Revoked;
     membership.revoked_at = now;
 

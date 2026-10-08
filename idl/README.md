@@ -6,21 +6,15 @@ IDL JSON for both on-chain programs:
 - `organization.json`
 - `film.json`
 
-They're copied here from `target/idl/*.json` (which is gitignored, since
-`target/` is a build output directory that gets wiped by `cargo clean`, a
-fresh clone, or CI). This `idl/` directory exists so consumers have
-something versioned to read without needing a local Anchor build.
+They're copied here from `target/idl/*.json` (gitignored build output) so
+consumers have something versioned to read without a local Anchor build.
 
-## These are snapshots, not a live sync
+## Keeping the snapshots current
 
-The files here reflect the state of `programs/organization` and
-`programs/film` as of the commit that last updated them. They are **not**
-automatically regenerated or kept in sync with the program source — if the
-programs change, these files go stale until someone manually re-runs
-`anchor build` and copies the new output here. A future sync mechanism
-(e.g. a script that pulls the IDL from chain via `anchor idl fetch`, or
-from a fresher build) may replace this snapshot approach. Don't build
-anything that assumes these files auto-update.
+`scripts/check-idl.sh` fails when `target/idl/*.json` (from `anchor build`)
+differs from the files here, and CI runs it. After changing a program, run
+`anchor build`, copy `target/idl/*.json` here, and run
+`npm run --prefix scripts generate-clients`.
 
 ## Client derivation contract: the `Film` PDA
 

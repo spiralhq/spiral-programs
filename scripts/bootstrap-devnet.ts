@@ -38,6 +38,14 @@ async function deterministicAddress(seed: string): Promise<Address> {
   return getAddressFromPublicKey(publicKey);
 }
 
+async function organizationEventAccounts() {
+  const [eventAuthority] = await getProgramDerivedAddress({
+    programAddress: ORGANIZATION_PROGRAM_ADDRESS,
+    seeds: [new TextEncoder().encode("__event_authority")],
+  });
+  return { eventAuthority, program: ORGANIZATION_PROGRAM_ADDRESS };
+}
+
 async function revokeH3Membership(
   client: SpiralBootstrapClient,
   accounts: {
@@ -46,17 +54,12 @@ async function revokeH3Membership(
     membership: Address;
   },
 ): Promise<void> {
-  const [eventAuthority] = await getProgramDerivedAddress({
-    programAddress: ORGANIZATION_PROGRAM_ADDRESS,
-    seeds: [new TextEncoder().encode("__event_authority")],
-  });
   const instruction = await getRevokeMembershipInstructionAsync({
     authority: client.payer,
     organization: accounts.organization,
     member: accounts.member,
     membership: accounts.membership,
-    eventAuthority,
-    program: ORGANIZATION_PROGRAM_ADDRESS,
+    ...(await organizationEventAccounts()),
   });
   await client.sendTransaction([instruction]);
 }
@@ -135,6 +138,7 @@ async function main() {
       organization: orgPda,
       member: memberAddress,
       role: scenario.role,
+      ...(await organizationEventAccounts()),
     });
     await client.sendTransaction([grantInstruction]);
     console.log(`Granted ${Role[scenario.role]} to ${scenario.name} (${memberAddress}).`);

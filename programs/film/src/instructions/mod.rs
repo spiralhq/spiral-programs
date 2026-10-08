@@ -1,5 +1,6 @@
 pub mod deactivate_replica;
 pub mod declare_replica;
+pub mod manage;
 pub mod register_film;
 pub mod update_access_policy;
 

@@ -1,3 +1,8 @@
+#[path = "../../../test-support/program_bytes.rs"]
+mod program_bytes;
+
+use program_bytes::program_bytes;
+
 use {
     anchor_lang::{
         prelude::{Clock, Pubkey},
@@ -17,14 +22,8 @@ fn load_svm() -> LiteSVM {
         unix_timestamp: 1_700_000_000,
         ..Default::default()
     });
-    svm.add_program(
-        organization::id(),
-        include_bytes!(concat!(
-            env!("CARGO_TARGET_TMPDIR"),
-            "/../deploy/organization.so"
-        )),
-    )
-    .unwrap();
+    svm.add_program(organization::id(), &program_bytes("organization"))
+        .unwrap();
     svm
 }
 
@@ -94,6 +93,12 @@ fn full_membership_lifecycle() {
             member: member.pubkey(),
             membership: member_membership,
             system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
+            program: organization::id(),
         }
         .to_account_metas(None),
     );
@@ -117,6 +122,12 @@ fn full_membership_lifecycle() {
             admin_membership,
             member: member.pubkey(),
             membership: member_membership,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
+            program: organization::id(),
         }
         .to_account_metas(None),
     );
@@ -155,14 +166,50 @@ fn full_membership_lifecycle() {
     assert_eq!(state.status, organization::MembershipStatus::Revoked);
     assert!(state.revoked_at > 0);
 
-    // transfer_authority: authority -> member
+    // transfer_authority: authority -> another active Admin
+    let successor = Keypair::new();
+    let (successor_membership, _) = Pubkey::find_program_address(
+        &[b"membership", org.as_ref(), successor.pubkey().as_ref()],
+        &organization::id(),
+    );
+    let grant_admin_ix = Instruction::new_with_bytes(
+        organization::id(),
+        &organization::instruction::GrantMembership {
+            role: organization::Role::Admin,
+        }
+        .data(),
+        organization::accounts::GrantMembership {
+            authority: authority.pubkey(),
+            organization: org,
+            admin_membership,
+            member: successor.pubkey(),
+            membership: successor_membership,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
+            program: organization::id(),
+        }
+        .to_account_metas(None),
+    );
+    send(&mut svm, &authority, &[grant_admin_ix]);
+
     let transfer_ix = Instruction::new_with_bytes(
         organization::id(),
         &organization::instruction::TransferAuthority {}.data(),
         organization::accounts::TransferAuthority {
             authority: authority.pubkey(),
             organization: org,
-            new_authority: member.pubkey(),
+            new_authority: successor.pubkey(),
+            new_authority_membership: successor_membership,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
+            program: organization::id(),
         }
         .to_account_metas(None),
     );
@@ -171,5 +218,5 @@ fn full_membership_lifecycle() {
     let acc = svm.get_account(&org).unwrap();
     let mut data: &[u8] = &acc.data;
     let org_state = organization::Organization::try_deserialize(&mut data).unwrap();
-    assert_eq!(org_state.authority, member.pubkey());
+    assert_eq!(org_state.authority, successor.pubkey());
 }
