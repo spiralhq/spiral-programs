@@ -18,7 +18,10 @@ fn load_svm() -> LiteSVM {
     let mut svm = LiteSVM::new();
     svm.add_program(
         organization::id(),
-        include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/organization.so")),
+        include_bytes!(concat!(
+            env!("CARGO_TARGET_TMPDIR"),
+            "/../deploy/organization.so"
+        )),
     )
     .unwrap();
     svm.add_program(
@@ -29,7 +32,12 @@ fn load_svm() -> LiteSVM {
     svm
 }
 
-fn send(svm: &mut LiteSVM, payer: &Keypair, ixs: &[Instruction], extra: &[&Keypair]) -> TransactionResult {
+fn send(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    ixs: &[Instruction],
+    extra: &[&Keypair],
+) -> TransactionResult {
     svm.expire_blockhash();
     let bh = svm.latest_blockhash();
     let msg = Message::new_with_blockhash(ixs, Some(&payer.pubkey()), &bh);
@@ -40,7 +48,11 @@ fn send(svm: &mut LiteSVM, payer: &Keypair, ixs: &[Instruction], extra: &[&Keypa
 }
 
 fn assert_ok(res: &TransactionResult) {
-    assert!(res.is_ok(), "expected success, got: {:?}", res.as_ref().err());
+    assert!(
+        res.is_ok(),
+        "expected success, got: {:?}",
+        res.as_ref().err()
+    );
 }
 
 fn assert_error_code(res: &TransactionResult, expected: u32) {
@@ -57,7 +69,8 @@ fn assert_error_code(res: &TransactionResult, expected: u32) {
 
 fn init_org(svm: &mut LiteSVM, authority: &Keypair, slug: &str) -> Pubkey {
     svm.airdrop(&authority.pubkey(), 10_000_000_000).unwrap();
-    let (org, _) = Pubkey::find_program_address(&[b"organization", slug.as_bytes()], &organization::id());
+    let (org, _) =
+        Pubkey::find_program_address(&[b"organization", slug.as_bytes()], &organization::id());
     let (membership, _) = Pubkey::find_program_address(
         &[b"membership", org.as_ref(), authority.pubkey().as_ref()],
         &organization::id(),
@@ -81,13 +94,21 @@ fn init_org(svm: &mut LiteSVM, authority: &Keypair, slug: &str) -> Pubkey {
     org
 }
 
-fn grant(svm: &mut LiteSVM, authority: &Keypair, org: Pubkey, member: Pubkey, role: organization::Role) -> Pubkey {
+fn grant(
+    svm: &mut LiteSVM,
+    authority: &Keypair,
+    org: Pubkey,
+    member: Pubkey,
+    role: organization::Role,
+) -> Pubkey {
     let (admin_membership, _) = Pubkey::find_program_address(
         &[b"membership", org.as_ref(), authority.pubkey().as_ref()],
         &organization::id(),
     );
-    let (membership, _) =
-        Pubkey::find_program_address(&[b"membership", org.as_ref(), member.as_ref()], &organization::id());
+    let (membership, _) = Pubkey::find_program_address(
+        &[b"membership", org.as_ref(), member.as_ref()],
+        &organization::id(),
+    );
     let ix = Instruction::new_with_bytes(
         organization::id(),
         &organization::instruction::GrantMembership { role }.data(),
@@ -105,7 +126,12 @@ fn grant(svm: &mut LiteSVM, authority: &Keypair, org: Pubkey, member: Pubkey, ro
     membership
 }
 
-fn register_ix(org: Pubkey, submitter: Pubkey, membership: Pubkey, seed: u8) -> (Instruction, Pubkey) {
+fn register_ix(
+    org: Pubkey,
+    submitter: Pubkey,
+    membership: Pubkey,
+    seed: u8,
+) -> (Instruction, Pubkey) {
     let cid: [u8; 64] = {
         let mut c = [0u8; 64];
         c[0] = 0x01;
@@ -117,7 +143,10 @@ fn register_ix(org: Pubkey, submitter: Pubkey, membership: Pubkey, seed: u8) -> 
     };
     let (film_pda, _) = {
         let digest = solana_sha256_hasher::hash(&cid[..36]);
-        Pubkey::find_program_address(&[b"film", org.as_ref(), &digest.to_bytes()[..32]], &film::id())
+        Pubkey::find_program_address(
+            &[b"film", org.as_ref(), &digest.to_bytes()[..32]],
+            &film::id(),
+        )
     };
     let event_authority = Pubkey::find_program_address(&[b"__event_authority"], &film::id()).0;
     let ix = Instruction::new_with_bytes(
@@ -153,8 +182,10 @@ fn scenario_1_no_membership() {
     svm.airdrop(&outsider.pubkey(), 10_000_000_000).unwrap();
     let org = init_org(&mut svm, &authority, "h3-1");
 
-    let (outsider_membership, _) =
-        Pubkey::find_program_address(&[b"membership", org.as_ref(), outsider.pubkey().as_ref()], &organization::id());
+    let (outsider_membership, _) = Pubkey::find_program_address(
+        &[b"membership", org.as_ref(), outsider.pubkey().as_ref()],
+        &organization::id(),
+    );
     let (ix, _) = register_ix(org, outsider.pubkey(), outsider_membership, 1);
     let res = send(&mut svm, &outsider, &[ix], &[]);
     assert_error_code(&res, 3012);
@@ -167,7 +198,13 @@ fn scenario_2_revoked_membership() {
     let member = Keypair::new();
     svm.airdrop(&member.pubkey(), 10_000_000_000).unwrap();
     let org = init_org(&mut svm, &authority, "h3-2");
-    let membership = grant(&mut svm, &authority, org, member.pubkey(), organization::Role::Submitter);
+    let membership = grant(
+        &mut svm,
+        &authority,
+        org,
+        member.pubkey(),
+        organization::Role::Submitter,
+    );
 
     let (admin_membership, _) = Pubkey::find_program_address(
         &[b"membership", org.as_ref(), authority.pubkey().as_ref()],
@@ -182,7 +219,11 @@ fn scenario_2_revoked_membership() {
             admin_membership,
             member: member.pubkey(),
             membership,
-            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &organization::id()).0,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
             program: organization::id(),
         }
         .to_account_metas(None),
@@ -201,7 +242,13 @@ fn scenario_3_insufficient_role() {
     let member = Keypair::new();
     svm.airdrop(&member.pubkey(), 10_000_000_000).unwrap();
     let org = init_org(&mut svm, &authority, "h3-3");
-    let membership = grant(&mut svm, &authority, org, member.pubkey(), organization::Role::Reader);
+    let membership = grant(
+        &mut svm,
+        &authority,
+        org,
+        member.pubkey(),
+        organization::Role::Reader,
+    );
 
     let (ix, _) = register_ix(org, member.pubkey(), membership, 3);
     let res = send(&mut svm, &member, &[ix], &[]);
@@ -217,7 +264,13 @@ fn scenario_4_org_mismatch() {
     svm.airdrop(&member.pubkey(), 10_000_000_000).unwrap();
     let org_a = init_org(&mut svm, &authority_a, "h3-4a");
     let org_b = init_org(&mut svm, &authority_b, "h3-4b");
-    let membership_in_a = grant(&mut svm, &authority_a, org_a, member.pubkey(), organization::Role::Submitter);
+    let membership_in_a = grant(
+        &mut svm,
+        &authority_a,
+        org_a,
+        member.pubkey(),
+        organization::Role::Submitter,
+    );
 
     let (ix, _) = register_ix(org_b, member.pubkey(), membership_in_a, 4);
     let res = send(&mut svm, &member, &[ix], &[]);
@@ -233,7 +286,13 @@ fn scenario_5_member_mismatch() {
     svm.airdrop(&member.pubkey(), 10_000_000_000).unwrap();
     svm.airdrop(&impostor.pubkey(), 10_000_000_000).unwrap();
     let org = init_org(&mut svm, &authority, "h3-5");
-    let membership = grant(&mut svm, &authority, org, member.pubkey(), organization::Role::Submitter);
+    let membership = grant(
+        &mut svm,
+        &authority,
+        org,
+        member.pubkey(),
+        organization::Role::Submitter,
+    );
 
     let (ix, _) = register_ix(org, impostor.pubkey(), membership, 5);
     let res = send(&mut svm, &impostor, &[ix], &[]);
@@ -307,10 +366,13 @@ fn scenario_8_oversized_cid_len_returns_error_not_panic() {
         c
     };
     let cid_len: u8 = 200; // > 64, would panic an unclamped `&cid[..cid_len as usize]` slice
-    // PDA must match the clamped-in-program computation.
+                           // PDA must match the clamped-in-program computation.
     let (film_pda, _) = {
         let digest = solana_sha256_hasher::hash(&cid[..(cid_len as usize).min(64)]);
-        Pubkey::find_program_address(&[b"film", org.as_ref(), &digest.to_bytes()[..32]], &film::id())
+        Pubkey::find_program_address(
+            &[b"film", org.as_ref(), &digest.to_bytes()[..32]],
+            &film::id(),
+        )
     };
     let event_authority = Pubkey::find_program_address(&[b"__event_authority"], &film::id()).0;
     let ix = Instruction::new_with_bytes(

@@ -51,6 +51,11 @@ The test suites live under each program's `tests/` directory:
 `h3_scenarios.rs` (the H3 negative-scenario tests, with exact expected error
 codes) for `film`.
 
+H3 is one of the four research hypotheses the off-chain evaluation harness in
+`spiral-backbone` tests (H1–H4, defined in that repo's `docs/eval-harness.md`):
+**submission authority** — the programs refuse every unauthorized registration
+on-chain, each with its expected error code.
+
 ## Program keypairs
 
 The private keys backing the two Program IDs above are backed up outside of

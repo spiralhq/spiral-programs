@@ -13,7 +13,10 @@ use {
 
 fn load_svm() -> LiteSVM {
     let mut svm = LiteSVM::new();
-    let org_bytes = include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/organization.so"));
+    let org_bytes = include_bytes!(concat!(
+        env!("CARGO_TARGET_TMPDIR"),
+        "/../deploy/organization.so"
+    ));
     let film_bytes = include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/film.so"));
     svm.add_program(organization::id(), org_bytes).unwrap();
     svm.add_program(film::id(), film_bytes).unwrap();
@@ -39,7 +42,11 @@ fn register_film_succeeds_via_cpi_to_organization() {
     let (organization_pda, _) =
         Pubkey::find_program_address(&[b"organization", slug.as_bytes()], &organization::id());
     let (membership_pda, _) = Pubkey::find_program_address(
-        &[b"membership", organization_pda.as_ref(), authority.pubkey().as_ref()],
+        &[
+            b"membership",
+            organization_pda.as_ref(),
+            authority.pubkey().as_ref(),
+        ],
         &organization::id(),
     );
 
@@ -73,7 +80,10 @@ fn register_film_succeeds_via_cpi_to_organization() {
     };
     let (film_pda, _) = {
         let digest = solana_sha256_hasher::hash(&cid[..36]);
-        Pubkey::find_program_address(&[b"film", organization_pda.as_ref(), &digest.to_bytes()[..32]], &film::id())
+        Pubkey::find_program_address(
+            &[b"film", organization_pda.as_ref(), &digest.to_bytes()[..32]],
+            &film::id(),
+        )
     };
 
     let register_ix = Instruction::new_with_bytes(

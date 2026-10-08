@@ -40,7 +40,10 @@ pub fn handle_register_film(
 ) -> Result<()> {
     require!(cid_len == 36, FilmError::InvalidCidLength);
     require!(cid[0] == 0x01, FilmError::InvalidCidPrefix);
-    require!(cid[1] == 0x70 || cid[1] == 0x55, FilmError::InvalidCidPrefix);
+    require!(
+        cid[1] == 0x70 || cid[1] == 0x55,
+        FilmError::InvalidCidPrefix
+    );
     require!(cid[2] == 0x12, FilmError::InvalidCidPrefix);
     require!(cid[3] == 0x20, FilmError::InvalidCidPrefix);
 

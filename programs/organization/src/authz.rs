@@ -13,8 +13,15 @@ pub fn require_role(
         membership.status == MembershipStatus::Active,
         OrgError::MembershipRevoked
     );
-    require!(allowed.contains(&membership.role), OrgError::InsufficientRole);
-    require_keys_eq!(membership.organization, *organization, OrgError::OrgMismatch);
+    require!(
+        allowed.contains(&membership.role),
+        OrgError::InsufficientRole
+    );
+    require_keys_eq!(
+        membership.organization,
+        *organization,
+        OrgError::OrgMismatch
+    );
     require_keys_eq!(membership.member, *signer, OrgError::MemberMismatch);
     Ok(())
 }

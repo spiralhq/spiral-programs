@@ -19,7 +19,10 @@ fn load_svm() -> LiteSVM {
     });
     svm.add_program(
         organization::id(),
-        include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/organization.so")),
+        include_bytes!(concat!(
+            env!("CARGO_TARGET_TMPDIR"),
+            "/../deploy/organization.so"
+        )),
     )
     .unwrap();
     svm
@@ -42,7 +45,8 @@ fn full_membership_lifecycle() {
     svm.airdrop(&authority.pubkey(), 10_000_000_000).unwrap();
 
     let slug = "roles-org".to_string();
-    let (org, _) = Pubkey::find_program_address(&[b"organization", slug.as_bytes()], &organization::id());
+    let (org, _) =
+        Pubkey::find_program_address(&[b"organization", slug.as_bytes()], &organization::id());
     let (admin_membership, _) = Pubkey::find_program_address(
         &[b"membership", org.as_ref(), authority.pubkey().as_ref()],
         &organization::id(),
@@ -73,8 +77,10 @@ fn full_membership_lifecycle() {
     assert_eq!(org_state.authority, authority.pubkey());
 
     // grant_membership (Reader)
-    let (member_membership, _) =
-        Pubkey::find_program_address(&[b"membership", org.as_ref(), member.pubkey().as_ref()], &organization::id());
+    let (member_membership, _) = Pubkey::find_program_address(
+        &[b"membership", org.as_ref(), member.pubkey().as_ref()],
+        &organization::id(),
+    );
     let grant_ix = Instruction::new_with_bytes(
         organization::id(),
         &organization::instruction::GrantMembership {
@@ -132,7 +138,11 @@ fn full_membership_lifecycle() {
             admin_membership,
             member: member.pubkey(),
             membership: member_membership,
-            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &organization::id()).0,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &organization::id(),
+            )
+            .0,
             program: organization::id(),
         }
         .to_account_metas(None),
