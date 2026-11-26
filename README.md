@@ -2,9 +2,11 @@
 
 <div align="center">
 
-[![Solana](https://img.shields.io/badge/Solana-Devnet-blueviolet?style=for-the-badge&logo=solana&logoColor=white)](https://solana.com)
-[![Anchor](https://img.shields.io/badge/Anchor-1.1.2-informational?style=for-the-badge)](https://book.anchor-lang.com/)
-[![License](https://img.shields.io/github/license/spiralhq/spiral-programs?style=for-the-badge)](LICENSE)
+[![CI](https://github.com/spiralhq/spiral-programs/actions/workflows/ci.yml/badge.svg)](https://github.com/spiralhq/spiral-programs/actions/workflows/ci.yml)
+[![Rust 1.89.0](docs/assets/badges/rust.svg)](https://www.rust-lang.org)
+[![Anchor 1.1.2](docs/assets/badges/anchor.svg)](https://www.anchor-lang.com)
+[![Solana Devnet](docs/assets/badges/solana.svg)](https://solana.com)
+[![License MIT](docs/assets/badges/license.svg)](LICENSE)
 
 **On-chain half of the Spiral protocol**
 
@@ -36,10 +38,9 @@ Organization ──▶ assert_can_submit (CPI) ──▶ Film
      (members, roles)                  (registration, replicas, access policy)
 ```
 
-`film` never reads a membership account on its own: it asks `organization`,
-across programs, before creating a `Film` account or changing one. Each
-program is independently deployable and enforces its own authorization —
-there is no shared, implicit trust between them.
+Before creating or changing a `Film` account, `film` asks `organization`, through
+a cross-program invocation (CPI), whether the signer may submit. To change a film
+submitted by someone else, the signer must also be an Admin of the organization.
 
 ---
 
@@ -65,8 +66,8 @@ of the protocol.
 Registers audiovisual works and their declared storage replicas.
 
 **Highlights**
-- `register_film` CPIs into `organization::assert_can_submit` before
-  creating the `Film` account
+- `register_film` CPIs into `organization::assert_can_submit`; if the check
+  fails, the transaction fails and no `Film` account is created
 - Up to eight declared replicas per work, identified by IPFS `PeerID`
 - `declare_replica`, `deactivate_replica`, `update_access_policy` — gated to
   an active Submitter/Admin membership in the film's organization
@@ -74,8 +75,8 @@ Registers audiovisual works and their declared storage replicas.
   address is derived from the organization and the CID, by design
 - Error codes `6005`-`6013`
 
-Error ranges overlap between the two programs on purpose: a code is only
-meaningful together with the program that returned it.
+The error ranges of the two programs overlap: a code is only meaningful together
+with the program that returned it.
 
 See [`docs/organization.md`](docs/organization.md) and
 [`docs/film.md`](docs/film.md) for the full structure of each program —
@@ -85,12 +86,14 @@ every account, instruction, error code, and event.
 
 ## 🔐 Security Model
 
-- PDA-derived authorities everywhere; no keypair owns protocol state
+- Protocol state lives in PDAs owned by the two programs; every change is signed
+  by a wallet that the program checks
 - Explicit CPI authorization — `film` cannot create or alter a work without
   `organization`'s sign-off
-- Role enforcement at the instruction level, checked before any account is
-  touched
-- Deterministic account derivation closes the door on duplicate submissions
+- Role checks enforced on-chain by each instruction; a refused transaction
+  changes no state
+- Deterministic account derivation prevents the same CID from being registered
+  twice in one organization
 
 ---
 
@@ -133,6 +136,7 @@ error code.
 | Rust        | 1.89.0 (pinned via `rust-toolchain.toml`) |
 | Solana CLI  | 3.1.10                                |
 | Anchor CLI  | 1.1.2 (pinned in `Anchor.toml`)       |
+| Node.js     | ≥ 22.18, for `scripts/` and the IDL upload |
 
 ### Build
 
@@ -147,7 +151,15 @@ anchor test
 ```
 
 `Anchor.toml` sets `skip_local_validator = true` and `[scripts].test = "cargo
-test"`, so `anchor test` just builds and then runs `cargo test`.
+test"`, so `anchor test` builds the programs and then runs `cargo test`.
+
+The program keypairs are not in the repository. On a clone without them, do what
+CI does:
+
+```bash
+anchor build --ignore-keys
+anchor test --skip-build
+```
 
 ---
 
@@ -176,7 +188,7 @@ procedure. The essentials:
 
 ## 📜 License
 
-MIT License.
+[MIT](LICENSE).
 
 ---
 

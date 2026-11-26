@@ -37,7 +37,8 @@ the keypair instead (step 2).
 
 The deployed ELF must be exactly the local build: an off-chain pre-flight
 compares the deployed program byte for byte with `target/deploy/<p>.so`, and
-the local `target/idl/<p>.json` with the client IDL in `idl/`.
+the local `target/idl/<p>.json` with the client IDL in `spiral-backbone`
+(`packages/protocol/src/idl/<p>.json`).
 
 1. Check out the tagged commit you are deploying, in a clean tree:
    ```sh
@@ -286,8 +287,9 @@ To run it:
    The path is the repo-root `keys/`, which `.gitignore` covers
    (`keys/*.json`). Do not use a program keypair as payer: it is not a
    funded wallet and must never leave `keys/`.
-2. If `idl/` changed since `scripts/generated/` was last regenerated, run
-   `npm run --prefix scripts generate-clients` first.
+2. Install the script dependencies with `npm ci --prefix scripts`. If `idl/`
+   changed since `scripts/generated/` was last regenerated, also run
+   `npm run --prefix scripts generate-clients`.
 3. `cd scripts && npm run bootstrap-devnet` (runs `tsx bootstrap-devnet.ts`;
    plain `node` cannot resolve the generated client's directory imports).
    `SPIRAL_DEVNET_RPC` and `SPIRAL_DEVNET_WS` override the endpoints.

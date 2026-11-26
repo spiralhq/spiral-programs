@@ -159,9 +159,8 @@ Custom error codes overlap across the two programs (organization uses
 meanings, and only the failing instruction's program ID disambiguates them.
 Always read the program ID before decoding a code.
 
-New variants are only ever appended. Removing or reordering a variant renumbers everything after it — anything hardcoding
-these codes (tests, clients) breaks silently if that happens without updating them
-too.
+New variants are only ever appended. Removing or reordering a variant renumbers everything after
+it, which silently breaks anything that hardcodes these codes (tests, clients).
 
 ## Events
 
@@ -169,7 +168,6 @@ too.
   `revoke_membership` via `emit_cpi!`. Every field is already present on
   `Membership` itself; the event exists so a client can react without re-fetching
   the account, not to carry new data.
-
 - **`MembershipGranted`** (`organization`, `member`, `role`, `granted_by`,
   `granted_at`) — emitted by `grant_membership`.
 - **`MembershipRoleUpdated`** (`organization`, `member`, `authority`, `old_role`,

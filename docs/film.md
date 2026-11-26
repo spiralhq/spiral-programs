@@ -2,8 +2,9 @@
 
 Registers audiovisual works on-chain. Each film is a `Film` account, addressed
 deterministically from its IPFS CID and the submitting organization. Depends on
-`organization` (see `docs/organization.md`) for authorization: every instruction CPIs into
-`organization::assert_can_submit` before touching a `Film` account.
+`organization` (see `docs/organization.md`) for authorization: every instruction
+CPIs into `organization::assert_can_submit`, and a failed check leaves no change
+on-chain.
 
 Program ID: `6MK8C7frTETvrmM5dhN6jkUyXdxcMAfTjKkhG1Y7Pcbu`.
 
@@ -65,7 +66,8 @@ Enum: `Public` or `OrganizationOnly`.
    (`TitleTooLong`, 6011). Both run after the CID checks, so a bad CID still
    reports 6005/6006.
 3. CPIs into `organization::assert_can_submit` — this is what rejects an
-   unauthorized submitter before any `Film` account is touched.
+   unauthorized submitter. Anchor creates the `Film` account (`init`) before the
+   handler runs, and the failed transaction rolls it back.
 4. Writes the `Film` account fields, defaulting `access_policy` to `Public` and
    `replicas` to all-default.
 5. Emits `FilmRegistered` via `emit_cpi!`.
@@ -213,11 +215,11 @@ instructions rather than log lines.
 `tests/management_authz.rs` runs each management instruction against: the active
 submitter (ok), the submitter after revoke (6001), the submitter demoted to
 Reader (6002), another active Submitter (6002), an org Admin who is not the
-submitter (ok), an Admin of another organization with its own org (6003), and
-memberships at the wrong address (2006), and a membership owned by another
-program (3007). It also checks the `authority` and `was_active` event fields. `tests/replicas.rs` covers PeerID
-validation, duplicates, reactivation, append-before-reuse, slot reuse and
-capacity.
+submitter (ok), an Admin of another organization with its own org (6003),
+memberships at the wrong address (2006) and a membership owned by another
+program (3007). It also checks the `authority` and `was_active` event fields.
+`tests/replicas.rs` covers PeerID validation, duplicates, reactivation,
+append-before-reuse, slot reuse and capacity.
 
 `tests/error_docs.rs` checks that the code range stated here and in the README
 matches `idl/film.json`, and that the `ReplicaCapacityExceeded` message names
